@@ -34,11 +34,11 @@ jobs:
       run: |
         aws cloudformation deploy \
           --template-file packaged-template.yaml \
-          --stack-name VinayakCloudFormationCRUD \
+          --stack-name DemoVinayakCloudFormationCRUD \
           --capabilities CAPABILITY_NAMED_IAM
 
     - name: Describe CloudFormation stack
       if: ${{ failure() }}
       run: |
         aws cloudformation describe-stack-events \
-          --stack-name VinayakCloudFormationCRUD
+          --stack-name DemoVinayakCloudFormationCRUD
