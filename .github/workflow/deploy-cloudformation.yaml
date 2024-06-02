@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - feature/vinayak
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -32,12 +33,12 @@ jobs:
     - name: Deploy CloudFormation stack 
       run: |
         aws cloudformation deploy \
-          --template-file CRUD.yaml \
-          --stack-name VinayakCloudFormation \
+          --template-file packaged-template.yaml \
+          --stack-name NewDemoVinayakCloudFormationCRUD \
           --capabilities CAPABILITY_NAMED_IAM
 
     - name: Describe CloudFormation stack
       if: ${{ failure() }}
       run: |
         aws cloudformation describe-stack-events \
-          --stack-name VinayakCloudFormation
+          --stack-name NewDemoVinayakCloudFormationCRUD
