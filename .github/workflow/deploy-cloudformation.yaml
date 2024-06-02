@@ -2,7 +2,7 @@ name: Deploy CloudFormation Stack
 on:
   push:
     branches:
-      - backend-demo-vinayak
+      - feature/vinayak
 jobs:
   deploy:
     runs-on: ubuntu-latest
