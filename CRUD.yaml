@@ -1,0 +1,147 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Parameters: 
+  LambdaFuncName:
+    Type: String
+    Default: Lambda_CRUD_with_S3
+  DynamoDBTableName:
+    Type: String
+    Default: new_data_db
+  APIName:
+    Type: String
+    Default: API_lambda_DB
+  EnvironmentName:
+    Type: String
+    Default: Prod      
+  ElementName:
+    Type: String
+    Default: EmployeeId
+    Description: Name
+  ElementType:
+    Type: String
+    Default: S
+    Description: Type
+Resources:
+  IAMRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: policy_crud
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - 'dynamodb:BatchGetItem'
+                  - 'dynamodb:BatchWriteItem'
+                  - 'dynamodb:TagResource'
+                  - 'dynamodb:UnTagResource'
+                  - 'dynamodb:PutItem'
+                  - 'dynamodb:DeleteItem'
+                  - 'dynamodb:GetItem'
+                  - 'dynamodb:Scan'
+                  - 'dynamodb:Query'
+                  - 'dynamodb:UpdateItem'
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - 'logs:CreateLogStream'
+                  - 'logs:CreateLogGroup'
+                  - 'logs:PutLogEvents'
+                Resource: '*'     
+  DynamoDBTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: New_Vinayak_dynamo_data_db
+      AttributeDefinitions:
+        -
+          AttributeName: !Ref ElementName
+          AttributeType: !Ref ElementType
+      KeySchema:
+        -
+          AttributeName: !Ref ElementName
+          KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+    DependsOn:
+      - IAMRole    
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    DependsOn:
+      - DynamoDBTable
+    Properties:
+      Role: !GetAtt IAMRole.Arn
+      Runtime: nodejs20.x
+      Handler: index.handler
+      FunctionName:
+        Ref: LambdaFuncName
+      Code:
+        S3Bucket: PLACEHOLDER_BUCKET
+        S3Key: PLACEHOLDER_KEY
+      Tags:
+        - Key: Name
+          Value: LambdaFunction   
+  APIGatewayRestAPI:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name:
+        Ref: APIName
+    DependsOn:
+      - LambdaFunction    
+  APIGatewayResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref APIGatewayRestAPI
+      ParentId: !GetAtt
+        - APIGatewayRestAPI
+        - RootResourceId
+      PathPart:
+        Ref: LambdaFuncName
+    DependsOn:
+      - APIGatewayRestAPI      
+  APIGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      RestApiId: !Ref APIGatewayRestAPI
+      ResourceId: !Ref APIGatewayResource
+      HttpMethod: POST
+      AuthorizationType: NONE
+      Integration:
+        Type: AWS
+        IntegrationResponses:
+            - StatusCode: '200'
+        IntegrationHttpMethod: POST
+        Uri: !Sub
+          - arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
+          - LambdaFuncNameArn: !GetAtt LambdaFunction.Arn
+      MethodResponses:
+        - StatusCode: '200'
+    DependsOn:
+      - APIGatewayResource
+      - LambdaFunction            
+  APIGatewayDeployment:
+      Type: AWS::ApiGateway::Deployment
+      Properties:
+        RestApiId: !Ref APIGatewayRestAPI
+        StageName: EnvironmentName
+      DependsOn:
+        - APIGatewayMethod  
+  APIGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt LambdaFunction.Arn
+      Principal: apigateway.amazonaws.com
+    DependsOn:
+      - APIGatewayDeployment  
